@@ -7,10 +7,13 @@ import (
 
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 
 	"github.com/dlvhdr/gh-dash/v4/internal/config"
 	"github.com/dlvhdr/gh-dash/v4/internal/data"
 	"github.com/dlvhdr/gh-dash/v4/internal/tui/components/prrow"
+	"github.com/dlvhdr/gh-dash/v4/internal/tui/components/reminderprompt"
+	"github.com/dlvhdr/gh-dash/v4/internal/tui/components/remindersection"
 	"github.com/dlvhdr/gh-dash/v4/internal/tui/components/section"
 	"github.com/dlvhdr/gh-dash/v4/internal/tui/components/table"
 	"github.com/dlvhdr/gh-dash/v4/internal/tui/components/tasks"
@@ -24,7 +27,10 @@ const SectionType = "pr"
 
 type Model struct {
 	section.BaseModel
-	Prs []prrow.Data
+	Prs                []prrow.Data
+	isSettingReminder  bool
+	pendingReminderKey string
+	reminderPrompt     reminderprompt.Model
 }
 
 func NewModel(
@@ -49,13 +55,53 @@ func NewModel(
 		},
 	)
 	m.Prs = []prrow.Data{}
+	m.reminderPrompt = reminderprompt.New(ctx.MainContentWidth - 10)
 
 	return m
+}
+
+func (m *Model) View() string {
+	baseView := m.BaseModel.View()
+	if m.isSettingReminder {
+		return lipgloss.Place(
+			m.Ctx.MainContentWidth,
+			m.Ctx.MainContentHeight,
+			lipgloss.Center,
+			lipgloss.Center,
+			m.reminderPrompt.View(),
+			lipgloss.WithWhitespaceBackground(m.Ctx.Styles.Section.ContainerStyle.GetBackground()),
+		)
+	}
+	return baseView
 }
 
 func (m *Model) Update(msg tea.Msg) (section.Section, tea.Cmd) {
 	var cmd tea.Cmd
 	var err error
+
+	// Handle messages emitted by the reminder prompt
+	switch msg := msg.(type) {
+	case reminderprompt.ConfirmMsg:
+		entry := data.ReminderEntry{
+			RemindAt: time.Now().Add(msg.Duration),
+			Note:     msg.Note,
+		}
+		data.GetRemindersStore().Set(m.pendingReminderKey, entry)
+		m.isSettingReminder = false
+		return m, nil
+	case reminderprompt.CancelMsg:
+		m.isSettingReminder = false
+		return m, nil
+	}
+
+	// If the reminder prompt is active, route key messages to it
+	if m.isSettingReminder {
+		if keyMsg, ok := msg.(tea.KeyMsg); ok {
+			newPrompt, promptCmd := m.reminderPrompt.Update(keyMsg)
+			m.reminderPrompt = newPrompt
+			return m, promptCmd
+		}
+	}
 
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
@@ -127,6 +173,19 @@ func (m *Model) Update(msg tea.Msg) (section.Section, tea.Cmd) {
 
 		case key.Matches(msg, keys.PRKeys.WatchChecks):
 			cmd = m.watchChecks()
+
+		case key.Matches(msg, keys.PRKeys.SetReminder):
+			pr := m.GetCurrRow()
+			if pr != nil {
+				prData := pr.(*prrow.Data)
+				m.pendingReminderKey = data.ReminderKey(
+					prData.Primary.Repository.NameWithOwner,
+					prData.Primary.Number,
+				)
+				m.isSettingReminder = true
+				m.reminderPrompt = reminderprompt.New(m.Ctx.MainContentWidth - 10)
+			}
+			return m, nil
 		}
 
 	case tasks.UpdatePRMsg:
@@ -491,25 +550,42 @@ func FetchAllSections(
 	fetchPRsCmds := make([]tea.Cmd, 0, len(ctx.Config.PRSections))
 	sections = make([]section.Section, 0, len(ctx.Config.PRSections))
 	for i, sectionConfig := range ctx.Config.PRSections {
-		sectionModel := NewModel(
-			i+1, // 0 is the search section
-			ctx,
-			sectionConfig,
-			time.Now(),
-			time.Now(),
-		)
-		if len(prs) > 0 && len(prs) >= i+1 && prs[i+1] != nil {
-			oldSection := prs[i+1].(*Model)
-			sectionModel.Prs = oldSection.Prs
-			sectionModel.LastFetchTaskId = oldSection.LastFetchTaskId
+		if sectionConfig.Source == config.SourceReminders {
+			sectionModel := remindersection.NewModel(
+				i+1,
+				ctx,
+				sectionConfig.ToSectionConfig(),
+			)
+			// preserve existing rows if available
+			if len(prs) > 0 && len(prs) >= i+1 && prs[i+1] != nil {
+				if oldSection, ok := prs[i+1].(*remindersection.Model); ok {
+					sectionModel.Rows = oldSection.Rows
+				}
+			}
+			sections = append(sections, sectionModel)
+			fetchPRsCmds = append(fetchPRsCmds, sectionModel.FetchNextPageSectionRows()...)
+		} else {
+			sectionModel := NewModel(
+				i+1, // 0 is the search section
+				ctx,
+				sectionConfig,
+				time.Now(),
+				time.Now(),
+			)
+			if len(prs) > 0 && len(prs) >= i+1 && prs[i+1] != nil {
+				if oldSection, ok := prs[i+1].(*Model); ok {
+					sectionModel.Prs = oldSection.Prs
+					sectionModel.LastFetchTaskId = oldSection.LastFetchTaskId
+				}
+			}
+			if sectionConfig.Layout.AuthorIcon.Hidden != nil {
+				sectionModel.ShowAuthorIcon = !*sectionConfig.Layout.AuthorIcon.Hidden
+			}
+			sections = append(sections, &sectionModel)
+			fetchPRsCmds = append(
+				fetchPRsCmds,
+				sectionModel.FetchNextPageSectionRows()...)
 		}
-		if sectionConfig.Layout.AuthorIcon.Hidden != nil {
-			sectionModel.ShowAuthorIcon = !*sectionConfig.Layout.AuthorIcon.Hidden
-		}
-		sections = append(sections, &sectionModel)
-		fetchPRsCmds = append(
-			fetchPRsCmds,
-			sectionModel.FetchNextPageSectionRows()...)
 	}
 	return sections, tea.Batch(fetchPRsCmds...)
 }
