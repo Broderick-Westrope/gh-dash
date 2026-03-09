@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/textarea"
@@ -44,7 +45,8 @@ type Model struct {
 	isUnassigning     bool
 	summaryViewMore   bool
 
-	inputBox inputbox.Model
+	inputBox       inputbox.Model
+	activeReminder *data.ReminderEntry
 }
 
 var tabs = []string{" Overview", " Activity", " Commits", " Checks", " Files Changed"}
@@ -214,6 +216,11 @@ func (m Model) View() string {
 
 	switch m.carousel.SelectedItem() {
 	case tabs[0]:
+		if banner := m.reminderBanner(); banner != "" {
+			body.WriteString(banner)
+			body.WriteString("\n\n")
+		}
+
 		reviewers := m.renderRequestedReviewers()
 		if reviewers != "" {
 			body.WriteString(reviewers)
@@ -551,6 +558,37 @@ func (m *Model) renderSummary() string {
 	)
 }
 
+func (m *Model) reminderBanner() string {
+	if m.activeReminder == nil {
+		return ""
+	}
+	entry := m.activeReminder
+	now := time.Now()
+
+	var timeStr string
+	if entry.RemindAt.Before(now) {
+		elapsed := utils.TimeElapsed(entry.RemindAt)
+		timeStr = elapsed + " ago"
+	} else {
+		remaining := time.Until(entry.RemindAt)
+		timeStr = "in " + remaining.Round(time.Minute).String()
+	}
+
+	text := "⏰ " + timeStr
+	if entry.Note != "" {
+		text += " — " + entry.Note
+	}
+
+	style := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("11")).
+		BorderLeft(true).
+		BorderStyle(lipgloss.NormalBorder()).
+		BorderForeground(lipgloss.Color("11")).
+		PaddingLeft(1)
+
+	return style.Render(text)
+}
+
 func (m *Model) SetSectionId(id int) {
 	m.sectionId = id
 }
@@ -558,8 +596,16 @@ func (m *Model) SetSectionId(id int) {
 func (m *Model) SetRow(d *prrow.Data) {
 	if d == nil {
 		m.pr = nil
+		m.activeReminder = nil
 	} else {
 		m.pr = &prrow.PullRequest{Ctx: m.ctx, Data: d}
+		key := data.ReminderKey(d.Primary.GetRepoNameWithOwner(), d.Primary.GetNumber())
+		entry, ok := data.GetRemindersStore().Get(key)
+		if ok {
+			m.activeReminder = &entry
+		} else {
+			m.activeReminder = nil
+		}
 	}
 }
 

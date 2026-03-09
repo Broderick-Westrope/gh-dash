@@ -27,6 +27,8 @@ type PRKeyMap struct {
 	WatchChecks      key.Binding
 	ApproveWorkflows key.Binding
 	ViewIssues       key.Binding
+	SetReminder      key.Binding
+	DismissReminder  key.Binding
 }
 
 var PRKeys = PRKeyMap{
@@ -98,6 +100,14 @@ var PRKeys = PRKeyMap{
 		key.WithKeys("s"),
 		key.WithHelp("s", "switch to issues"),
 	),
+	SetReminder: key.NewBinding(
+		key.WithKeys("t"),
+		key.WithHelp("t", "set reminder"),
+	),
+	DismissReminder: key.NewBinding(
+		key.WithKeys("D"),
+		key.WithHelp("D", "dismiss reminder"),
+	),
 }
 
 func PRFullHelp() []key.Binding {
@@ -118,6 +128,8 @@ func PRFullHelp() []key.Binding {
 		PRKeys.WatchChecks,
 		PRKeys.ApproveWorkflows,
 		PRKeys.ViewIssues,
+		PRKeys.SetReminder,
+		PRKeys.DismissReminder,
 	}
 }
 
@@ -180,6 +192,10 @@ func rebindPRKeys(keys []config.Keybinding) error {
 			key = &PRKeys.ApproveWorkflows
 		case "viewIssues":
 			key = &PRKeys.ViewIssues
+		case "setReminder":
+			key = &PRKeys.SetReminder
+		case "dismissReminder":
+			key = &PRKeys.DismissReminder
 		case "summaryViewMore":
 			key = &PRKeys.SummaryViewMore
 		case "toggleSmartFiltering":

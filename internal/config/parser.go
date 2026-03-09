@@ -81,11 +81,22 @@ const (
 	RepoView          ViewType = "repo"
 )
 
+// SectionSource identifies where a section's data comes from.
+type SectionSource string
+
+const (
+	// SourceGitHub is the default: fetch PRs from GitHub API.
+	SourceGitHub SectionSource = ""
+	// SourceReminders shows PRs whose reminder timer has fired.
+	SourceReminders SectionSource = "reminders"
+)
+
 type SectionConfig struct {
 	Title   string
 	Filters string
-	Limit   *int      `yaml:"limit,omitempty"`
-	Type    *ViewType `yaml:"type,omitempty"`
+	Limit   *int          `yaml:"limit,omitempty"`
+	Type    *ViewType     `yaml:"type,omitempty"`
+	Source  SectionSource `yaml:"source,omitempty"`
 }
 
 type PrsSectionConfig struct {
@@ -94,6 +105,7 @@ type PrsSectionConfig struct {
 	Limit   *int            `yaml:"limit,omitempty"`
 	Layout  PrsLayoutConfig `yaml:"layout,omitempty"`
 	Type    *ViewType       `yaml:"type,omitempty"`
+	Source  SectionSource   `yaml:"source,omitempty"`
 }
 
 type IssuesSectionConfig struct {

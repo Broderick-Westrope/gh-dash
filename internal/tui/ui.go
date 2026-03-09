@@ -33,6 +33,7 @@ import (
 	"github.com/dlvhdr/gh-dash/v4/internal/tui/components/prrow"
 	"github.com/dlvhdr/gh-dash/v4/internal/tui/components/prssection"
 	"github.com/dlvhdr/gh-dash/v4/internal/tui/components/prview"
+	"github.com/dlvhdr/gh-dash/v4/internal/tui/components/remindersection"
 	"github.com/dlvhdr/gh-dash/v4/internal/tui/components/reposection"
 	"github.com/dlvhdr/gh-dash/v4/internal/tui/components/section"
 	"github.com/dlvhdr/gh-dash/v4/internal/tui/components/sidebar"
@@ -61,6 +62,7 @@ type Model struct {
 	ctx              *context.ProgramContext
 	taskSpinner      spinner.Model
 	tasks            map[string]context.Task
+	lastDueSet       map[string]struct{}
 }
 
 func NewModel(location config.Location) Model {
@@ -158,7 +160,7 @@ func (m *Model) initScreen() tea.Msg {
 }
 
 func (m Model) Init() tea.Cmd {
-	return tea.Batch(m.initScreen, tea.EnterAltScreen)
+	return tea.Batch(m.initScreen, tea.EnterAltScreen, reminderTickCmd())
 }
 
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -636,6 +638,22 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.setCurrentViewSections(newSections)
 		cmds = append(cmds, fetchSectionsCmds, m.doRefreshAtInterval())
 
+	case reminderTickMsg:
+		currentDueSet := make(map[string]struct{})
+		for k := range data.GetRemindersStore().GetDue() {
+			currentDueSet[k] = struct{}{}
+		}
+		if !mapsEqual(m.lastDueSet, currentDueSet) {
+			m.lastDueSet = currentDueSet
+			for _, s := range m.prs {
+				if rs, ok := s.(*remindersection.Model); ok {
+					rs.ResetRows()
+					cmds = append(cmds, rs.FetchNextPageSectionRows()...)
+				}
+			}
+		}
+		cmds = append(cmds, reminderTickCmd())
+
 	case userFetchedMsg:
 		m.ctx.User = msg.user
 
@@ -668,7 +686,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case prview.EnrichedPrMsg:
 		if msg.Err == nil {
 			m.prView.SetEnrichedPR(msg.Data)
-			m.prs[msg.Id].(*prssection.Model).EnrichPR(msg.Data)
+			if prsSection, ok := m.prs[msg.Id].(*prssection.Model); ok {
+				prsSection.EnrichPR(msg.Data)
+			}
 			syncCmd := m.syncSidebar()
 			cmds = append(cmds, syncCmd)
 		} else {
@@ -963,7 +983,7 @@ func (m *Model) updateSection(id int, sType string, msg tea.Msg) (cmd tea.Cmd) {
 			m.notifications[id], cmd = m.notifications[id].Update(msg)
 		}
 
-	case prssection.SectionType:
+	case prssection.SectionType, remindersection.SectionType:
 		updatedSection, cmd = m.prs[id].Update(msg)
 		m.prs[id] = updatedSection
 	case issuessection.SectionType:
@@ -1621,6 +1641,26 @@ func (m *Model) doUpdateFooterAtInterval() tea.Cmd {
 			return updateFooterMsg{}
 		},
 	)
+}
+
+type reminderTickMsg struct{}
+
+func reminderTickCmd() tea.Cmd {
+	return tea.Tick(30*time.Second, func(time.Time) tea.Msg {
+		return reminderTickMsg{}
+	})
+}
+
+func mapsEqual(a, b map[string]struct{}) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for k := range a {
+		if _, ok := b[k]; !ok {
+			return false
+		}
+	}
+	return true
 }
 
 // promptConfirmationForNotificationPR shows a confirmation prompt for PR actions

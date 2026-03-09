@@ -14,6 +14,7 @@ prSections:
         hidden: true
   - title: All
     filters: repo:dlvhdr/gh-dash
+    source: reminders
     layout:
       repoName:
         hidden: true
