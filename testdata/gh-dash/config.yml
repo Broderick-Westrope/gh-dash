@@ -67,7 +67,6 @@ repo:
     prsRefetchIntervalSeconds: 60
 repoPaths: {}
 showAuthorIcons: true
-smartFilteringAtLaunch: true
 theme:
     ui:
         sectionsShowCount: true

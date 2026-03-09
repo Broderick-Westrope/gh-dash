@@ -326,7 +326,6 @@ type Config struct {
 	Pager                    Pager                        `yaml:"pager"`
 	ConfirmQuit              bool                         `yaml:"confirmQuit"`
 	ShowAuthorIcons          bool                         `yaml:"showAuthorIcons,omitempty"`
-	SmartFilteringAtLaunch   bool                         `yaml:"smartFilteringAtLaunch" default:"true"`
 	IncludeReadNotifications bool                         `yaml:"includeReadNotifications" default:"true"`
 }
 
@@ -488,7 +487,6 @@ func (parser ConfigParser) getDefaultConfig() Config {
 		},
 		ConfirmQuit:              false,
 		ShowAuthorIcons:          true,
-		SmartFilteringAtLaunch:   true,
 		IncludeReadNotifications: true,
 	}
 }

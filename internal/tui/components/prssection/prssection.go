@@ -7,7 +7,6 @@ import (
 
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/log"
 
 	"github.com/dlvhdr/gh-dash/v4/internal/config"
 	"github.com/dlvhdr/gh-dash/v4/internal/data"
@@ -70,7 +69,6 @@ func (m *Model) Update(msg tea.Msg) (section.Section, tea.Cmd) {
 
 			case tea.KeyEnter:
 				m.SearchValue = m.SearchBar.Value()
-				m.SyncSmartFilterWithSearchValue()
 				m.SetIsSearching(false)
 				m.ResetRows()
 				return m, tea.Batch(m.FetchNextPageSectionRows()...)
@@ -120,24 +118,6 @@ func (m *Model) Update(msg tea.Msg) (section.Section, tea.Cmd) {
 		switch {
 		case key.Matches(msg, keys.PRKeys.Diff):
 			cmd = m.diff()
-
-		case key.Matches(msg, keys.PRKeys.ToggleSmartFiltering):
-			before := m.IsFilteredByCurrentRemote
-
-			// If we're filtering by the current repo - we want to remove it
-			// If there's no repo filter we want to add the current repo filter.
-			if m.HasCurrentRepoNameInConfiguredFilter() || !m.HasRepoNameInConfiguredFilter() {
-				m.IsFilteredByCurrentRemote = !before
-			}
-			log.Debug("toggled smart filtering", "before", before, "after", m.IsFilteredByCurrentRemote)
-			searchValue := m.GetSearchValue()
-			if m.SearchValue != searchValue {
-				m.SearchValue = searchValue
-				m.SearchBar.SetValue(searchValue)
-				m.SetIsSearching(false)
-				m.ResetRows()
-				return m, tea.Batch(m.FetchNextPageSectionRows()...)
-			}
 
 		case key.Matches(msg, keys.PRKeys.Checkout):
 			cmd, err = m.checkout()

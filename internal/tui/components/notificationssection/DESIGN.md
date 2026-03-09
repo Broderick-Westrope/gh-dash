@@ -56,7 +56,6 @@ When a notification is selected but not yet viewed, a prompt is displayed in the
             [m]  mark as read
             [u]  unsubscribe
             [b]  toggle bookmark
-            [t]  toggle filtering
             [S]  sort by repo
             [o]  open in browser
         [Enter]  view
@@ -276,7 +275,6 @@ The table component was extended to support per-column alignment via an `Align` 
 | M | Mark all as read |
 | u | Unsubscribe from thread |
 | b | Toggle bookmark |
-| t | Toggle smart filtering (filter to current repo) |
 | y | Copy PR/Issue number |
 | Y | Copy URL |
 | S | Sort by repository |
@@ -368,7 +366,6 @@ The implementation in `modelUtils.go` checks `notificationView.GetSubjectPR()` /
 Like PRs and Issues, the Notifications view includes a search section (indicated by a magnifying glass icon 🔍) as the first tab. This serves as a scratchpad for one-off searches without modifying your configured sections.
 
 - Default filter: `archived:false`
-- Respects `smartFilteringAtLaunch`: when enabled and running from a git repository, the search automatically scopes to that repo
 - Use the `/` key to focus the search bar and enter custom queries
 - Supports all notification filters: `is:unread`, `is:read`, `repo:owner/name`, `reason:*`
 
@@ -425,15 +422,6 @@ The initial fetch limit is controlled by `defaults.notificationsLimit` (default:
 defaults:
   notificationsLimit: 20
 ```
-
-### Smart Filtering
-
-Notifications respect the global `smartFilteringAtLaunch` setting (enabled by default). When enabled and running from within a git repository, notifications are automatically scoped to that repository. The search bar displays `repo:owner/name` to indicate this filtering.
-
-Users can:
-- Press `t` to toggle filtering on/off for the current session
-- Manually edit the search bar to remove or replace the `repo:` filter; submitting with Enter syncs the smart filter state to match
-- Set `smartFilteringAtLaunch: false` in config to disable this behavior globally
 
 #### 11. CheckSuite URL Resolution
 

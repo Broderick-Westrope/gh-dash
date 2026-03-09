@@ -14,10 +14,9 @@ type IssueKeyMap struct {
 	Assign               key.Binding
 	Unassign             key.Binding
 	Comment              key.Binding
-	Close                key.Binding
-	Reopen               key.Binding
-	ToggleSmartFiltering key.Binding
-	ViewPRs              key.Binding
+	Close   key.Binding
+	Reopen  key.Binding
+	ViewPRs key.Binding
 }
 
 var IssueKeys = IssueKeyMap{
@@ -45,10 +44,6 @@ var IssueKeys = IssueKeyMap{
 		key.WithKeys("X"),
 		key.WithHelp("X", "reopen"),
 	),
-	ToggleSmartFiltering: key.NewBinding(
-		key.WithKeys("t"),
-		key.WithHelp("t", "toggle smart filtering"),
-	),
 	ViewPRs: key.NewBinding(
 		key.WithKeys("s"),
 		key.WithHelp("s", "switch to notifications"),
@@ -63,7 +58,6 @@ func IssueFullHelp() []key.Binding {
 		IssueKeys.Comment,
 		IssueKeys.Close,
 		IssueKeys.Reopen,
-		IssueKeys.ToggleSmartFiltering,
 		IssueKeys.ViewPRs,
 	}
 }
@@ -109,6 +103,9 @@ func rebindIssueKeys(keys []config.Keybinding) error {
 			key = &IssueKeys.Reopen
 		case "viewPrs":
 			key = &IssueKeys.ViewPRs
+		case "toggleSmartFiltering":
+			log.Warn("'toggleSmartFiltering' keybinding is no longer supported and will be ignored")
+			continue
 		default:
 			return fmt.Errorf("unknown built-in issue key: '%s'", issueKey.Builtin)
 		}

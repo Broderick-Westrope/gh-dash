@@ -19,9 +19,8 @@ type NotificationKeyMap struct {
 	Unsubscribe          key.Binding
 	ToggleBookmark       key.Binding
 	Open                 key.Binding
-	SortByRepo           key.Binding
-	SwitchToPRs          key.Binding
-	ToggleSmartFiltering key.Binding
+	SortByRepo  key.Binding
+	SwitchToPRs key.Binding
 }
 
 var NotificationKeys = NotificationKeyMap{
@@ -69,10 +68,6 @@ var NotificationKeys = NotificationKeyMap{
 		key.WithKeys("s"),
 		key.WithHelp("s", "switch to PRs"),
 	),
-	ToggleSmartFiltering: key.NewBinding(
-		key.WithKeys("t"),
-		key.WithHelp("t", "toggle smart filtering"),
-	),
 }
 
 func NotificationFullHelp() []key.Binding {
@@ -88,7 +83,6 @@ func NotificationFullHelp() []key.Binding {
 		NotificationKeys.Open,
 		NotificationKeys.SortByRepo,
 		NotificationKeys.SwitchToPRs,
-		NotificationKeys.ToggleSmartFiltering,
 	}
 }
 
@@ -140,7 +134,8 @@ func rebindNotificationKeys(keys []config.Keybinding) error {
 		case "switchToPRs":
 			key = &NotificationKeys.SwitchToPRs
 		case "toggleSmartFiltering":
-			key = &NotificationKeys.ToggleSmartFiltering
+			log.Warn("'toggleSmartFiltering' keybinding is no longer supported and will be ignored")
+			continue
 		default:
 			return fmt.Errorf("unknown built-in notification key: '%s'", notifKey.Builtin)
 		}

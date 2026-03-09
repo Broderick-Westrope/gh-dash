@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"fmt"
 	"log/slog"
-	"strings"
 	"text/template"
 	"time"
 
@@ -12,7 +11,6 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/log"
-	"github.com/cli/go-gh/v2/pkg/repository"
 	"github.com/go-sprout/sprout"
 	timeregistry "github.com/go-sprout/sprout/registry/time"
 
@@ -48,7 +46,6 @@ type BaseModel struct {
 	LastFetchTaskId           string
 	IsSearchSupported         bool
 	ShowAuthorIcon            bool
-	IsFilteredByCurrentRemote bool
 	IsLoading                 bool
 }
 
@@ -64,39 +61,12 @@ type NewSectionOptions struct {
 	CreatedAt   time.Time
 }
 
-func (options NewSectionOptions) GetConfigFiltersWithCurrentRemoteAdded(ctx *context.ProgramContext) string {
-	searchValue := options.Config.Filters
-	if !ctx.Config.SmartFilteringAtLaunch {
-		return searchValue
-	}
-	repo, err := repository.Current()
-	if err != nil {
-		return searchValue
-	}
-	for token := range strings.FieldsSeq(searchValue) {
-		if strings.HasPrefix(token, "repo:") {
-			return searchValue
-		}
-	}
-	return fmt.Sprintf("repo:%s/%s %s", repo.Owner, repo.Name, searchValue)
-}
 
 func NewModel(
 	ctx *context.ProgramContext,
 	options NewSectionOptions,
 ) BaseModel {
-	filters := options.GetConfigFiltersWithCurrentRemoteAdded(ctx)
-	isFilteredByCurrentRemote := false
-	repo, err := repository.Current()
-	if err == nil {
-		currentCloneFilter := fmt.Sprintf("repo:%s/%s", repo.Owner, repo.Name)
-		for token := range strings.FieldsSeq(filters) {
-			if token == currentCloneFilter {
-				isFilteredByCurrentRemote = true
-				break
-			}
-		}
-	}
+	filters := options.Config.Filters
 	m := BaseModel{
 		Ctx:          ctx,
 		Id:           options.Id,
@@ -110,13 +80,12 @@ func NewModel(
 			Prefix:       fmt.Sprintf("is:%s", options.Type),
 			InitialValue: filters,
 		}),
-		SearchValue:               filters,
-		IsSearching:               false,
-		IsFilteredByCurrentRemote: isFilteredByCurrentRemote,
-		TotalCount:                0,
-		PageInfo:                  nil,
-		PromptConfirmationBox:     prompt.NewModel(ctx),
-		ShowAuthorIcon:            ctx.Config.ShowAuthorIcons,
+		SearchValue:           filters,
+		IsSearching:           false,
+		TotalCount:            0,
+		PageInfo:              nil,
+		PromptConfirmationBox: prompt.NewModel(ctx),
+		ShowAuthorIcon:        ctx.Config.ShowAuthorIcons,
 	}
 	m.Table = table.NewModel(
 		*ctx,
@@ -205,57 +174,7 @@ func (m *BaseModel) GetConfig() config.SectionConfig {
 	return m.Config
 }
 
-func (m *BaseModel) HasRepoNameInConfiguredFilter() bool {
-	filters := m.SearchValue
-	for token := range strings.FieldsSeq(filters) {
-		if strings.HasPrefix(token, "repo:") {
-			return true
-		}
-	}
-	return false
-}
-
-func (m *BaseModel) HasCurrentRepoNameInConfiguredFilter() bool {
-	filters := m.SearchValue
-	repo, err := repository.Current()
-	if err != nil {
-		return false
-	}
-	currentCloneFilter := fmt.Sprintf("repo:%s/%s", repo.Owner, repo.Name)
-	for token := range strings.FieldsSeq(filters) {
-		if token == currentCloneFilter {
-			return true
-		}
-	}
-	return false
-}
-
-func (m *BaseModel) SyncSmartFilterWithSearchValue() {
-	m.IsFilteredByCurrentRemote = m.HasCurrentRepoNameInConfiguredFilter()
-}
-
 func (m *BaseModel) GetSearchValue() string {
-	searchValue := m.enrichSearchWithTemplateVars()
-	repo, err := repository.Current()
-	if err != nil {
-		return searchValue
-	}
-
-	currentCloneFilter := fmt.Sprintf("repo:%s/%s", repo.Owner, repo.Name)
-	var searchValueWithoutCurrentCloneFilter []string
-	for token := range strings.FieldsSeq(searchValue) {
-		if token != currentCloneFilter {
-			searchValueWithoutCurrentCloneFilter = append(searchValueWithoutCurrentCloneFilter, token)
-		}
-	}
-	if m.IsFilteredByCurrentRemote {
-		return fmt.Sprintf("%s %s", currentCloneFilter,
-			strings.Join(searchValueWithoutCurrentCloneFilter, " "))
-	}
-	return strings.Join(searchValueWithoutCurrentCloneFilter, " ")
-}
-
-func (m *BaseModel) enrichSearchWithTemplateVars() string {
 	searchValue := m.SearchValue
 	searchVars := struct{ Now time.Time }{
 		Now: time.Now(),
