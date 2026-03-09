@@ -182,7 +182,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.ctx.Error = nil
 
 		if currSection != nil && (currSection.IsSearchFocused() ||
-			currSection.IsPromptConfirmationFocused()) {
+			currSection.IsPromptConfirmationFocused() ||
+			currSection.IsModalOpen()) {
 			cmd = m.updateSection(currSection.GetId(), currSection.GetType(), msg)
 			return m, cmd
 		}

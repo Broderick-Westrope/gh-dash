@@ -100,6 +100,11 @@ func (t *TestSection) IsPromptConfirmationFocused() bool {
 	panic("unimplemented")
 }
 
+// IsModalOpen implements section.Section.
+func (t *TestSection) IsModalOpen() bool {
+	return false
+}
+
 // IsSearchFocused implements section.Section.
 func (t *TestSection) IsSearchFocused() bool {
 	panic("unimplemented")

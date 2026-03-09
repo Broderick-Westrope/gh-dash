@@ -94,13 +94,11 @@ func (m *Model) Update(msg tea.Msg) (section.Section, tea.Cmd) {
 		return m, nil
 	}
 
-	// If the reminder prompt is active, route key messages to it
+	// If the reminder prompt is active, route all messages to it
 	if m.isSettingReminder {
-		if keyMsg, ok := msg.(tea.KeyMsg); ok {
-			newPrompt, promptCmd := m.reminderPrompt.Update(keyMsg)
-			m.reminderPrompt = newPrompt
-			return m, promptCmd
-		}
+		var promptCmd tea.Cmd
+		m.reminderPrompt, promptCmd = m.reminderPrompt.Update(msg)
+		return m, promptCmd
 	}
 
 	switch msg := msg.(type) {
@@ -616,6 +614,10 @@ func removeAssignees(
 
 func assigneesContains(assignees []data.Assignee, assignee data.Assignee) bool {
 	return slices.Contains(assignees, assignee)
+}
+
+func (m *Model) IsModalOpen() bool {
+	return m.isSettingReminder
 }
 
 func (m Model) GetItemSingularForm() string {

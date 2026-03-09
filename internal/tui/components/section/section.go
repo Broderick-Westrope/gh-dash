@@ -120,6 +120,7 @@ type Section interface {
 	GetItemSingularForm() string
 	GetItemPluralForm() string
 	GetTotalCount() int
+	IsModalOpen() bool
 }
 
 type Identifier interface {
@@ -249,6 +250,10 @@ func (m *BaseModel) LastItem() int {
 
 func (m *BaseModel) IsSearchFocused() bool {
 	return m.IsSearching
+}
+
+func (m *BaseModel) IsModalOpen() bool {
+	return false
 }
 
 func (m *BaseModel) GetIsLoading() bool {

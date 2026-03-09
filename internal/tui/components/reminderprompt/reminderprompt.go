@@ -3,6 +3,7 @@ package reminderprompt
 import (
 	"time"
 
+	"github.com/charmbracelet/bubbles/textarea"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -21,7 +22,7 @@ type CancelMsg struct{}
 
 type Model struct {
 	durationInput textinput.Model
-	noteInput     textinput.Model
+	noteInput     textarea.Model
 	focused       int // 0 = duration, 1 = note
 	err           string
 	width         int
@@ -33,9 +34,12 @@ func New(width int) Model {
 	dur.Focus()
 	dur.CharLimit = 20
 
-	note := textinput.New()
+	note := textarea.New()
 	note.Placeholder = "optional note"
-	note.CharLimit = 100
+	note.SetHeight(3)
+	note.SetWidth(width - 6)
+	note.CharLimit = 500
+	note.ShowLineNumbers = false
 
 	m := Model{
 		durationInput: dur,
@@ -60,50 +64,85 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 		case msg.Type == tea.KeyEsc || msg.String() == "ctrl+c":
 			return m, func() tea.Msg { return CancelMsg{} }
 
-		case (msg.Type == tea.KeyTab || msg.Type == tea.KeyEnter) && m.focused == 0:
-			dur, err := data.ParseDuration(m.durationInput.Value())
-			if err != nil {
-				m.err = err.Error()
+		case m.focused == 0:
+			switch msg.Type {
+			case tea.KeyTab:
+				dur, err := data.ParseDuration(m.durationInput.Value())
+				if err != nil {
+					m.err = err.Error()
+					return m, nil
+				}
+				m.err = ""
+				// dur is validated but not stored; canonical parse happens at submit time.
+				_ = dur
+				m.durationInput.Blur()
+				m.focused = 1
+				cmd = m.noteInput.Focus()
+				return m, cmd
+
+			case tea.KeyEnter:
+				dur, err := data.ParseDuration(m.durationInput.Value())
+				if err != nil {
+					m.err = err.Error()
+					return m, nil
+				}
+				m.err = ""
+				return m, func() tea.Msg {
+					return ConfirmMsg{Duration: dur, Note: m.noteInput.Value()}
+				}
+
+			case tea.KeyShiftTab:
+				// no-op: already on the first field
 				return m, nil
-			}
-			m.err = ""
-			_ = dur
-			m.focused = 1
-			m.durationInput.Blur()
-			m.noteInput.Focus()
-			return m, textinput.Blink
 
-		case msg.Type == tea.KeyEnter && m.focused == 1:
-			dur, err := data.ParseDuration(m.durationInput.Value())
-			if err != nil {
-				// Shouldn't happen, but handle gracefully
-				m.err = err.Error()
-				m.focused = 0
-				m.noteInput.Blur()
-				m.durationInput.Focus()
-				return m, nil
-			}
-			return m, func() tea.Msg {
-				return ConfirmMsg{Duration: dur, Note: m.noteInput.Value()}
-			}
-
-		case msg.Type == tea.KeyShiftTab:
-			m.focused = 0
-			m.noteInput.Blur()
-			m.durationInput.Focus()
-			return m, textinput.Blink
-
-		default:
-			if m.focused == 0 {
+			default:
+				if msg.Type == tea.KeyCtrlD {
+					dur, err := data.ParseDuration(m.durationInput.Value())
+					if err != nil {
+						m.err = err.Error()
+						return m, nil
+					}
+					m.err = ""
+					return m, func() tea.Msg {
+						return ConfirmMsg{Duration: dur, Note: m.noteInput.Value()}
+					}
+				}
 				m.durationInput, cmd = m.durationInput.Update(msg)
-			} else {
-				m.noteInput, cmd = m.noteInput.Update(msg)
+				return m, cmd
 			}
-			return m, cmd
+
+		case m.focused == 1:
+			switch msg.Type {
+			// Tab on the note field is intentionally treated as back-navigation to duration.
+			case tea.KeyTab, tea.KeyShiftTab:
+				m.noteInput.Blur()
+				m.focused = 0
+				m.durationInput.Focus()
+				return m, textinput.Blink
+
+			default:
+				if msg.Type == tea.KeyCtrlD {
+					dur, err := data.ParseDuration(m.durationInput.Value())
+					if err != nil {
+						m.err = err.Error()
+						m.noteInput.Blur()
+						m.focused = 0
+						m.durationInput.Focus()
+						return m, textinput.Blink
+					}
+					m.err = ""
+					return m, func() tea.Msg {
+						return ConfirmMsg{Duration: dur, Note: m.noteInput.Value()}
+					}
+				}
+				// Pass all other keys (including Enter) to the textarea
+				m.noteInput, cmd = m.noteInput.Update(msg)
+				return m, cmd
+			}
 		}
 	}
 
-	// Route non-key messages to both inputs
+	// Route non-key messages to the active input
 	if m.focused == 0 {
 		m.durationInput, cmd = m.durationInput.Update(msg)
 	} else {
@@ -128,10 +167,16 @@ func (m Model) View() string {
 		m.noteInput.View(),
 	)
 
+	hint := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("8")).
+		Render("Tab: switch fields • Ctrl+D: submit • Esc: cancel")
+
 	inner := lipgloss.JoinVertical(lipgloss.Left,
 		durationField,
 		"",
 		noteField,
+		"",
+		hint,
 	)
 
 	return lipgloss.NewStyle().
@@ -144,5 +189,5 @@ func (m Model) View() string {
 func (m *Model) SetWidth(w int) {
 	m.width = w
 	m.durationInput.Width = w - 6
-	m.noteInput.Width = w - 6
+	m.noteInput.SetWidth(w - 6)
 }

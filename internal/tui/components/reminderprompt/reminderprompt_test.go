@@ -91,7 +91,31 @@ func TestReminderPrompt_EscAtNoteEmitsCancelMsg(t *testing.T) {
 	}
 }
 
-func TestReminderPrompt_EnterOnNoteEmitsConfirmMsg(t *testing.T) {
+func TestReminderPrompt_EnterOnDurationEmitsConfirmMsg(t *testing.T) {
+	m := New(40)
+
+	// Type a valid duration
+	for _, r := range "2h" {
+		m, _ = sendKey(m, tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{r}})
+	}
+
+	// Press Enter on the duration field to submit directly
+	_, cmd := sendKey(m, tea.KeyMsg{Type: tea.KeyEnter})
+	msg := runCmd(cmd)
+
+	confirm, ok := msg.(ConfirmMsg)
+	if !ok {
+		t.Fatalf("expected ConfirmMsg, got %T", msg)
+	}
+	if confirm.Duration != 2*time.Hour {
+		t.Errorf("expected duration 2h, got %v", confirm.Duration)
+	}
+	if confirm.Note != "" {
+		t.Errorf("expected empty note, got %q", confirm.Note)
+	}
+}
+
+func TestReminderPrompt_CtrlDOnNoteEmitsConfirmMsg(t *testing.T) {
 	m := New(40)
 
 	// Type valid duration
@@ -110,8 +134,8 @@ func TestReminderPrompt_EnterOnNoteEmitsConfirmMsg(t *testing.T) {
 		m, _ = sendKey(m, tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{r}})
 	}
 
-	// Press Enter to confirm
-	_, cmd := sendKey(m, tea.KeyMsg{Type: tea.KeyEnter})
+	// Press Ctrl+D to confirm (Enter now inserts newline in textarea)
+	_, cmd := sendKey(m, tea.KeyMsg{Type: tea.KeyCtrlD})
 	msg := runCmd(cmd)
 
 	confirm, ok := msg.(ConfirmMsg)
