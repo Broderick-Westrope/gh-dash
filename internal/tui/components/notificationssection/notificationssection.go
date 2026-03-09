@@ -195,8 +195,6 @@ func NewModel(
 	)
 	// Set 3-line content height for notification rows
 	m.Table.SetContentHeight(3)
-	// Respect smartFilteringAtLaunch - scope to current repo by default if enabled
-	m.IsFilteredByCurrentRemote = ctx.Config.SmartFilteringAtLaunch
 	m.SearchValue = m.GetSearchValue()
 	m.SearchBar.SetValue(m.SearchValue)
 	m.Notifications = []notificationrow.Data{}
@@ -220,7 +218,6 @@ func (m *Model) Update(msg tea.Msg) (section.Section, tea.Cmd) {
 
 			case tea.KeyEnter:
 				m.SearchValue = m.SearchBar.Value()
-				m.SyncSmartFilterWithSearchValue()
 				m.SetIsSearching(false)
 				m.ResetRows()
 				return m, tea.Batch(m.FetchNextPageSectionRows()...)
@@ -299,18 +296,6 @@ func (m *Model) Update(msg tea.Msg) (section.Section, tea.Cmd) {
 			m.Table.SetRows(m.BuildRows())
 			return m, nil
 
-		case key.Matches(msg, keys.NotificationKeys.ToggleSmartFiltering):
-			if m.HasCurrentRepoNameInConfiguredFilter() || !m.HasRepoNameInConfiguredFilter() {
-				m.IsFilteredByCurrentRemote = !m.IsFilteredByCurrentRemote
-			}
-			searchValue := m.GetSearchValue()
-			if m.SearchValue != searchValue {
-				m.SearchValue = searchValue
-				m.SearchBar.SetValue(searchValue)
-				m.SetIsSearching(false)
-				m.ResetRows()
-				return m, tea.Batch(m.FetchNextPageSectionRows()...)
-			}
 		}
 
 	case UpdateNotificationMsg:
@@ -548,7 +533,6 @@ func (m *Model) FetchNextPageSectionRows() []tea.Cmd {
 
 	var cmds []tea.Cmd
 
-	// Parse filters from search value (includes repo filter if smartFilteringAtLaunch is enabled)
 	filters := parseNotificationFilters(m.GetSearchValue(), m.Ctx.Config.IncludeReadNotifications)
 
 	// Handle is:done filter - these notifications cannot be retrieved
@@ -823,8 +807,6 @@ func FetchAllSections(
 				sectionModel.LastFetchTaskId = oldSection.LastFetchTaskId
 				sectionModel.sessionMarkedRead = oldSection.sessionMarkedRead
 				sectionModel.sessionMarkedDone = oldSection.sessionMarkedDone
-				// Preserve user's filter state - don't reset on refresh
-				sectionModel.IsFilteredByCurrentRemote = oldSection.IsFilteredByCurrentRemote
 				sectionModel.SearchValue = oldSection.SearchValue
 				sectionModel.SearchBar.SetValue(oldSection.SearchValue)
 			}

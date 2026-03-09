@@ -140,5 +140,4 @@ pager:
   diff: diffnav
 confirmQuit: true
 showAuthorIcons: true
-smartFilteringAtLaunch: true
 includeReadNotifications: true

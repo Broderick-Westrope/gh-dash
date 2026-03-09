@@ -24,10 +24,9 @@ type PRKeyMap struct {
 	Reopen               key.Binding
 	Merge                key.Binding
 	Update               key.Binding
-	WatchChecks          key.Binding
-	ApproveWorkflows     key.Binding
-	ToggleSmartFiltering key.Binding
-	ViewIssues           key.Binding
+	WatchChecks      key.Binding
+	ApproveWorkflows key.Binding
+	ViewIssues       key.Binding
 }
 
 var PRKeys = PRKeyMap{
@@ -95,10 +94,6 @@ var PRKeys = PRKeyMap{
 		key.WithKeys("V"),
 		key.WithHelp("V", "approve all workflows"),
 	),
-	ToggleSmartFiltering: key.NewBinding(
-		key.WithKeys("t"),
-		key.WithHelp("t", "toggle smart filtering"),
-	),
 	ViewIssues: key.NewBinding(
 		key.WithKeys("s"),
 		key.WithHelp("s", "switch to issues"),
@@ -122,7 +117,6 @@ func PRFullHelp() []key.Binding {
 		PRKeys.Update,
 		PRKeys.WatchChecks,
 		PRKeys.ApproveWorkflows,
-		PRKeys.ToggleSmartFiltering,
 		PRKeys.ViewIssues,
 	}
 }
@@ -188,6 +182,9 @@ func rebindPRKeys(keys []config.Keybinding) error {
 			key = &PRKeys.ViewIssues
 		case "summaryViewMore":
 			key = &PRKeys.SummaryViewMore
+		case "toggleSmartFiltering":
+			log.Warn("'toggleSmartFiltering' keybinding is no longer supported and will be ignored")
+			continue
 		default:
 			return fmt.Errorf("unknown built-in pr key: '%s'", prKey.Builtin)
 		}

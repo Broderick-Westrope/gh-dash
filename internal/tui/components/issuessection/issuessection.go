@@ -5,7 +5,6 @@ import (
 	"slices"
 	"time"
 
-	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/dlvhdr/gh-dash/v4/internal/config"
@@ -16,7 +15,6 @@ import (
 	"github.com/dlvhdr/gh-dash/v4/internal/tui/components/tasks"
 	"github.com/dlvhdr/gh-dash/v4/internal/tui/constants"
 	"github.com/dlvhdr/gh-dash/v4/internal/tui/context"
-	"github.com/dlvhdr/gh-dash/v4/internal/tui/keys"
 	"github.com/dlvhdr/gh-dash/v4/internal/utils"
 )
 
@@ -68,7 +66,6 @@ func (m *Model) Update(msg tea.Msg) (section.Section, tea.Cmd) {
 
 			case tea.KeyEnter:
 				m.SearchValue = m.SearchBar.Value()
-				m.SyncSmartFilterWithSearchValue()
 				m.SetIsSearching(false)
 				m.ResetRows()
 				return m, tea.Batch(m.FetchNextPageSectionRows()...)
@@ -104,21 +101,6 @@ func (m *Model) Update(msg tea.Msg) (section.Section, tea.Cmd) {
 				return m, tea.Batch(cmd, blinkCmd)
 			}
 			break
-		}
-
-		switch {
-		case key.Matches(msg, keys.IssueKeys.ToggleSmartFiltering):
-			if m.HasCurrentRepoNameInConfiguredFilter() || !m.HasRepoNameInConfiguredFilter() {
-				m.IsFilteredByCurrentRemote = !m.IsFilteredByCurrentRemote
-			}
-			searchValue := m.GetSearchValue()
-			if m.SearchValue != searchValue {
-				m.SearchValue = searchValue
-				m.SearchBar.SetValue(searchValue)
-				m.SetIsSearching(false)
-				m.ResetRows()
-				return m, tea.Batch(m.FetchNextPageSectionRows()...)
-			}
 		}
 
 	case tasks.UpdateIssueMsg:
